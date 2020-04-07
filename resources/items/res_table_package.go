@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-type ResTablePackageHeader struct {
+type ResTablePackage struct {
 	/*
 		chunk header
 	*/
@@ -18,7 +18,7 @@ type ResTablePackageHeader struct {
 	/*
 		package name
 	*/
-	Name [128]byte
+	Name [128]uint16
 	/*
 		type string pool start place relative to header
 	*/
@@ -35,52 +35,21 @@ type ResTablePackageHeader struct {
 		last public key's index. equals to key pool's size at this point and not used during parse
 	*/
 	LastPublicKey uint32
+	TypeIdOffset  uint32
 }
 
 /*
 Package chunk data struct
-String Pool
 Type String Pool
 Key String Pool
 Type Specification
 Type Info
 */
 
-type ResTablePackage struct {
-	ResTablePackageHeader
-	/*
-		struct same as string pool
-	*/
-	TypeStringPool ResStringPool
-	/*
-		struct same as string pool
-	*/
-	KeyStringPool     ResStringPool
-	TypeSpecification uint32
-	TypeInfo          uint32
-}
-
 func ParsePackage(src []byte, start uint32) ResTablePackage {
-	var tablePackageHeader ResTablePackageHeader
-	_ = binary.Read(bytes.NewBuffer(src[start:]), binary.LittleEndian, &tablePackageHeader)
-	fmt.Println(tablePackageHeader.TypeStrings)
-	fmt.Println(tablePackageHeader.KeyStrings)
-	var typeStringPool, keyStringPool ResStringPool
-	if tablePackageHeader.TypeStrings > 0 {
-		typeStringPool = ParseStringPool(src, start+tablePackageHeader.TypeStrings)
-	} else {
-		typeStringPool = ResStringPool{}
-	}
-	if tablePackageHeader.KeyStrings > 0 {
-		keyStringPool = ParseStringPool(src, start+tablePackageHeader.KeyStrings)
-	} else {
-		keyStringPool = ResStringPool{}
-	}
-	return ResTablePackage{
-		ResTablePackageHeader: tablePackageHeader,
-		TypeStringPool:        typeStringPool,
-		KeyStringPool:         keyStringPool,
-		TypeSpecification:     0,
-		TypeInfo:              0,
-	}
+	var resTablePackage ResTablePackage
+	_ = binary.Read(bytes.NewBuffer(src[start:]), binary.LittleEndian, &resTablePackage)
+	fmt.Println(resTablePackage.TypeStrings)
+	fmt.Println(resTablePackage.KeyStrings)
+	return resTablePackage
 }
