@@ -66,16 +66,10 @@ type Style struct {
 	ResStringPoolRef
 }
 
-func ParseStringPool(buffer *bytes.Buffer) ResStringPool {
+func ParseStringPool(src []byte, start uint32) ResStringPool {
 	var stringPoolHeader ResStringPoolHeader
+	buffer := bytes.NewBuffer(src[start:])
 	_ = binary.Read(buffer, binary.LittleEndian, &stringPoolHeader)
-	//fmt.Println("header size:", stringPoolHeader.HeaderSize)
-	//fmt.Println("chunk size:", stringPoolHeader.Size)
-	//fmt.Println("string count:", stringPoolHeader.StringCount)
-	//fmt.Println("style count:", stringPoolHeader.StyleCount)
-	//fmt.Printf("style flag:%x\n", stringPoolHeader.Flags)
-	//fmt.Println("string start:", stringPoolHeader.StringStart)
-	//fmt.Println("style start:", stringPoolHeader.StyleStart)
 	stringOffsetArray := make([]uint32, stringPoolHeader.StringCount, stringPoolHeader.StringCount)
 	styleOffsetArray := make([]uint32, stringPoolHeader.StyleCount, stringPoolHeader.StyleCount)
 	_ = binary.Read(buffer, binary.LittleEndian, &stringOffsetArray)
@@ -85,6 +79,7 @@ func ParseStringPool(buffer *bytes.Buffer) ResStringPool {
 	var b byte
 	bs := make([]byte, 2, 2)
 	strings := make([]string, stringPoolHeader.StringCount, stringPoolHeader.StringCount)
+	buffer = bytes.NewBuffer(src[start+stringPoolHeader.StringStart:])
 	for i := uint32(0); i < stringPoolHeader.StringCount; i++ {
 		_ = binary.Read(buffer, binary.LittleEndian, &stringLength)
 		if stringPoolHeader.Flags == UTF8_FLAG { // ends with 0x00

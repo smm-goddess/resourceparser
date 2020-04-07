@@ -6,14 +6,12 @@ import (
 	. "github.com/smm-goddess/resourceparser/resources/items"
 )
 
-func Parse(bs []byte) {
-	buffer := bytes.NewBuffer(bs)
-	tableHeader := ParseTableHeader(buffer)
-	fmt.Println(tableHeader)
-	globalStringPool := ParseStringPool(buffer)
+func Parse(src []byte) {
+	tableHeader := ParseTableHeader(src)
+	globalStringPool := ParseStringPool(src, uint32(tableHeader.HeaderSize))
 	fmt.Println(globalStringPool.StringCount)
-	fmt.Println(globalStringPool.Strings[3])
-	tablePackage := ParsePackage(buffer)
+	fmt.Printf("%x\n", uint32(tableHeader.HeaderSize)+globalStringPool.Size)
+	tablePackage := ParsePackage(src, uint32(tableHeader.HeaderSize)+globalStringPool.Size)
 	var buff bytes.Buffer
 	for _, c := range tablePackage.Name {
 		if c != 0x00 {
@@ -21,6 +19,4 @@ func Parse(bs []byte) {
 		}
 	}
 	fmt.Println(buff.String())
-	fmt.Println(tablePackage.KeyStringPool.Strings)
-	fmt.Println(tablePackage.TypeStringPool.Strings)
 }

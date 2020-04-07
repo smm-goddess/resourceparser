@@ -3,6 +3,7 @@ package items
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 type ResTablePackageHeader struct {
@@ -59,15 +60,26 @@ type ResTablePackage struct {
 	TypeInfo          uint32
 }
 
-func ParsePackage(buffer *bytes.Buffer) ResTablePackage {
+func ParsePackage(src []byte, start uint32) ResTablePackage {
 	var tablePackageHeader ResTablePackageHeader
-	_ = binary.Read(buffer, binary.LittleEndian, &tablePackageHeader)
-	typeStringPool := ParseStringPool(buffer)
-	KeyStringPool := ParseStringPool(buffer)
+	_ = binary.Read(bytes.NewBuffer(src[start:]), binary.LittleEndian, &tablePackageHeader)
+	fmt.Println(tablePackageHeader.TypeStrings)
+	fmt.Println(tablePackageHeader.KeyStrings)
+	var typeStringPool, keyStringPool ResStringPool
+	if tablePackageHeader.TypeStrings > 0 {
+		typeStringPool = ParseStringPool(src, start+tablePackageHeader.TypeStrings)
+	} else {
+		typeStringPool = ResStringPool{}
+	}
+	if tablePackageHeader.KeyStrings > 0 {
+		keyStringPool = ParseStringPool(src, start+tablePackageHeader.KeyStrings)
+	} else {
+		keyStringPool = ResStringPool{}
+	}
 	return ResTablePackage{
 		ResTablePackageHeader: tablePackageHeader,
 		TypeStringPool:        typeStringPool,
-		KeyStringPool:         KeyStringPool,
+		KeyStringPool:         keyStringPool,
 		TypeSpecification:     0,
 		TypeInfo:              0,
 	}
