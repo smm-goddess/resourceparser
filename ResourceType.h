@@ -13,47 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 //
 // Definitions of resource data structures.
 //
 #ifndef _LIBS_UTILS_RESOURCE_TYPES_H
 #define _LIBS_UTILS_RESOURCE_TYPES_H
-
 #include <androidfw/Asset.h>
 #include <utils/ByteOrder.h>
 #include <utils/Errors.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
-#include <utils/KeyedVector.h>
-
 #include <utils/threads.h>
-
 #include <stdint.h>
 #include <sys/types.h>
-
 #include <android/configuration.h>
-
 namespace android {
-
-/**
- * In C++11, char16_t is defined as *at least* 16 bits. We do a lot of
- * casting on raw data and expect char16_t to be exactly 16 bits.
- */
-#if __cplusplus >= 201103L
-struct __assertChar16Size {
-    static_assert(sizeof(char16_t) == sizeof(uint16_t), "char16_t is not 16 bits");
-    static_assert(alignof(char16_t) == alignof(uint16_t), "char16_t is not 16-bit aligned");
-};
-#endif
-
 /** ********************************************************************
  *  PNG Extensions
  *
  *  New private chunks that may be placed in PNG images.
  *
  *********************************************************************** */
-
 /**
  * This chunk specifies how to split an image into segments for
  * scaling.
@@ -91,7 +71,7 @@ struct __assertChar16Size {
  * two stretchable slices is exactly the ratio of their corresponding
  * segment lengths.
  *
- * xDivs and yDivs are arrays of horizontal and vertical pixel
+ * xDivs and yDivs point to arrays of horizontal and vertical pixel
  * indices.  The first pair of Divs (in either array) indicate the
  * starting and ending points of the first stretchable segment in that
  * axis. The next pair specifies the next stretchable segment, etc. So
@@ -104,79 +84,53 @@ struct __assertChar16Size {
  * go to xDiv[0] and slices 2, 6 and 10 start at xDiv[1] and end at
  * xDiv[2].
  *
- * The colors array contains hints for each of the regions. They are
- * ordered according left-to-right and top-to-bottom as indicated above.
- * For each segment that is a solid color the array entry will contain
- * that color value; otherwise it will contain NO_COLOR. Segments that
- * are completely transparent will always have the value TRANSPARENT_COLOR.
+ * The array pointed to by the colors field lists contains hints for
+ * each of the regions.  They are ordered according left-to-right and
+ * top-to-bottom as indicated above. For each segment that is a solid
+ * color the array entry will contain that color value; otherwise it
+ * will contain NO_COLOR.  Segments that are completely transparent
+ * will always have the value TRANSPARENT_COLOR.
  *
  * The PNG chunk type is "npTc".
  */
 struct Res_png_9patch
 {
-    Res_png_9patch() : wasDeserialized(false), xDivsOffset(0),
-                       yDivsOffset(0), colorsOffset(0) { }
-
+    Res_png_9patch() : wasDeserialized(false), xDivs(NULL),
+                       yDivs(NULL), colors(NULL) { }
     int8_t wasDeserialized;
-    uint8_t numXDivs;
-    uint8_t numYDivs;
-    uint8_t numColors;
-
-    // The offset (from the start of this structure) to the xDivs & yDivs
-    // array for this 9patch. To get a pointer to this array, call
-    // getXDivs or getYDivs. Note that the serialized form for 9patches places
-    // the xDivs, yDivs and colors arrays immediately after the location
-    // of the Res_png_9patch struct.
-    uint32_t xDivsOffset;
-    uint32_t yDivsOffset;
-
-    int32_t paddingLeft, paddingRight;
-    int32_t paddingTop, paddingBottom;
-
-    enum {
-        // The 9 patch segment is not a solid color.
-        NO_COLOR = 0x00000001,
-
-        // The 9 patch segment is completely transparent.
-        TRANSPARENT_COLOR = 0x00000000
-    };
-
-    // The offset (from the start of this structure) to the colors array
-    // for this 9patch.
-    uint32_t colorsOffset;
-
-    // Convert data from device representation to PNG file representation.
-    void deviceToFile();
-    // Convert data from PNG file representation to device representation.
-    void fileToDevice();
-
-    // Serialize/Marshall the patch data into a newly malloc-ed block.
-    static void* serialize(const Res_png_9patch& patchHeader, const int32_t* xDivs,
-                           const int32_t* yDivs, const uint32_t* colors);
-    // Serialize/Marshall the patch data into |outData|.
-    static void serialize(const Res_png_9patch& patchHeader, const int32_t* xDivs,
-                           const int32_t* yDivs, const uint32_t* colors, void* outData);
-    // Deserialize/Unmarshall the patch data
-    static Res_png_9patch* deserialize(void* data);
-    // Compute the size of the serialized data structure
-    size_t serializedSize() const;
-
+    int8_t numXDivs;
+    int8_t numYDivs;
+    int8_t numColors;
     // These tell where the next section of a patch starts.
     // For example, the first patch includes the pixels from
     // 0 to xDivs[0]-1 and the second patch includes the pixels
     // from xDivs[0] to xDivs[1]-1.
-    inline int32_t* getXDivs() const {
-        return reinterpret_cast<int32_t*>(reinterpret_cast<uintptr_t>(this) + xDivsOffset);
-    }
-    inline int32_t* getYDivs() const {
-        return reinterpret_cast<int32_t*>(reinterpret_cast<uintptr_t>(this) + yDivsOffset);
-    }
-    inline uint32_t* getColors() const {
-        return reinterpret_cast<uint32_t*>(reinterpret_cast<uintptr_t>(this) + colorsOffset);
-    }
-
-} __attribute__((packed));
-
+    // Note: allocation/free of these pointers is left to the caller.
+    int32_t* xDivs;
+    int32_t* yDivs;
+    int32_t paddingLeft, paddingRight;
+    int32_t paddingTop, paddingBottom;
+    enum {
+        // The 9 patch segment is not a solid color.
+        NO_COLOR = 0x00000001,
+        // The 9 patch segment is completely transparent.
+        TRANSPARENT_COLOR = 0x00000000
+    };
+    // Note: allocation/free of this pointer is left to the caller.
+    uint32_t* colors;
+    // Convert data from device representation to PNG file representation.
+    void deviceToFile();
+    // Convert data from PNG file representation to device representation.
+    void fileToDevice();
+    // Serialize/Marshall the patch data into a newly malloc-ed block
+    void* serialize();
+    // Serialize/Marshall the patch data
+    void serialize(void* outData);
+    // Deserialize/Unmarshall the patch data
+    static Res_png_9patch* deserialize(const void* data);
+    // Compute the size of the serialized data structure
+    size_t serializedSize();
+};
 /** ********************************************************************
  *  Base Types
  *
@@ -184,7 +138,6 @@ struct Res_png_9patch
  *  resource types.
  *
  *********************************************************************** */
-
 /**
  * Header that appears at the front of every data chunk in a resource.
  */
@@ -193,12 +146,10 @@ struct ResChunk_header
     // Type identifier for this chunk.  The meaning of this value depends
     // on the containing chunk.
     uint16_t type;
-
     // Size of the chunk header (in bytes).  Adding this value to
     // the address of the chunk allows you to find its associated data
     // (if any).
     uint16_t headerSize;
-
     // Total size of this chunk (in bytes).  This is the chunkSize plus
     // the size of any data associated with the chunk.  Adding this value
     // to the chunk allows you to completely skip its contents (including
@@ -206,13 +157,11 @@ struct ResChunk_header
     // no data associated with the chunk.
     uint32_t size;
 };
-
 enum {
     RES_NULL_TYPE               = 0x0000,
     RES_STRING_POOL_TYPE        = 0x0001,
     RES_TABLE_TYPE              = 0x0002,
     RES_XML_TYPE                = 0x0003,
-
     // Chunk types in RES_XML_TYPE
     RES_XML_FIRST_CHUNK_TYPE    = 0x0100,
     RES_XML_START_NAMESPACE_TYPE= 0x0100,
@@ -224,14 +173,11 @@ enum {
     // This contains a uint32_t array mapping strings in the string
     // pool back to resource identifiers.  It is optional.
     RES_XML_RESOURCE_MAP_TYPE   = 0x0180,
-
     // Chunk types in RES_TABLE_TYPE
     RES_TABLE_PACKAGE_TYPE      = 0x0200,
     RES_TABLE_TYPE_TYPE         = 0x0201,
-    RES_TABLE_TYPE_SPEC_TYPE    = 0x0202,
-    RES_TABLE_LIBRARY_TYPE      = 0x0203
+    RES_TABLE_TYPE_SPEC_TYPE    = 0x0202
 };
-
 /**
  * Macros for building/splitting resource identifiers.
  */
@@ -242,14 +188,10 @@ enum {
 #define Res_GETPACKAGE(id) ((id>>24)-1)
 #define Res_GETTYPE(id) (((id>>16)&0xFF)-1)
 #define Res_GETENTRY(id) (id&0xFFFF)
-
 #define Res_INTERNALID(resid) ((resid&0xFFFF0000) != 0 && (resid&0xFF0000) == 0)
 #define Res_MAKEINTERNAL(entry) (0x01000000 | (entry&0xFFFF))
 #define Res_MAKEARRAY(entry) (0x02000000 | (entry&0xFFFF))
-
 #define Res_MAXPACKAGE 255
-#define Res_MAXTYPE 255
-
 /**
  * Representation of a value in a resource, supplying type
  * information.
@@ -258,14 +200,12 @@ struct Res_value
 {
     // Number of bytes in this structure.
     uint16_t size;
-
     // Always set to 0.
     uint8_t res0;
 
     // Type of the data value.
     enum {
-        // The 'data' is either 0 or 1, specifying this resource is either
-        // undefined or empty, respectively.
+        // Contains no data.
         TYPE_NULL = 0x00,
         // The 'data' holds a ResTable_ref, a reference to another resource
         // table entry.
@@ -283,23 +223,16 @@ struct Res_value
         // The 'data' holds a complex number encoding a fraction of a
         // container.
         TYPE_FRACTION = 0x06,
-        // The 'data' holds a dynamic ResTable_ref, which needs to be
-        // resolved before it can be used like a TYPE_REFERENCE.
-        TYPE_DYNAMIC_REFERENCE = 0x07,
-
         // Beginning of integer flavors...
         TYPE_FIRST_INT = 0x10,
-
         // The 'data' is a raw integer value of the form n..n.
         TYPE_INT_DEC = 0x10,
         // The 'data' is a raw integer value of the form 0xn..n.
         TYPE_INT_HEX = 0x11,
         // The 'data' is either 0 or 1, for input "false" or "true" respectively.
         TYPE_INT_BOOLEAN = 0x12,
-
         // Beginning of color integer flavors...
         TYPE_FIRST_COLOR_INT = 0x1c,
-
         // The 'data' is a raw integer value of the form #aarrggbb.
         TYPE_INT_COLOR_ARGB8 = 0x1c,
         // The 'data' is a raw integer value of the form #rrggbb.
@@ -308,22 +241,18 @@ struct Res_value
         TYPE_INT_COLOR_ARGB4 = 0x1e,
         // The 'data' is a raw integer value of the form #rgb.
         TYPE_INT_COLOR_RGB4 = 0x1f,
-
         // ...end of integer flavors.
         TYPE_LAST_COLOR_INT = 0x1f,
-
         // ...end of integer flavors.
         TYPE_LAST_INT = 0x1f
     };
     uint8_t dataType;
-
     // Structure of complex data values (TYPE_UNIT and TYPE_FRACTION)
     enum {
         // Where the unit type information is.  This gives us 16 possible
         // types, as defined below.
         COMPLEX_UNIT_SHIFT = 0,
         COMPLEX_UNIT_MASK = 0xf,
-
         // TYPE_DIMENSION: Value is raw pixels.
         COMPLEX_UNIT_PX = 0,
         // TYPE_DIMENSION: Value is Device Independent Pixels.
@@ -336,18 +265,15 @@ struct Res_value
         COMPLEX_UNIT_IN = 4,
         // TYPE_DIMENSION: Value is in millimeters.
         COMPLEX_UNIT_MM = 5,
-
         // TYPE_FRACTION: A basic fraction of the overall size.
         COMPLEX_UNIT_FRACTION = 0,
         // TYPE_FRACTION: A fraction of the parent size.
         COMPLEX_UNIT_FRACTION_PARENT = 1,
-
         // Where the radix information is, telling where the decimal place
         // appears in the mantissa.  This give us 4 possible fixed point
         // representations as defined below.
         COMPLEX_RADIX_SHIFT = 4,
         COMPLEX_RADIX_MASK = 0x3,
-
         // The mantissa is an integral number -- i.e., 0xnnnnnn.0
         COMPLEX_RADIX_23p0 = 0,
         // The mantissa magnitude is 16 bits -- i.e, 0xnnnn.nn
@@ -356,27 +282,15 @@ struct Res_value
         COMPLEX_RADIX_8p15 = 2,
         // The mantissa magnitude is 0 bits -- i.e, 0x0.nnnnnn
         COMPLEX_RADIX_0p23 = 3,
-
         // Where the actual value is.  This gives us 23 bits of
         // precision.  The top bit is the sign.
         COMPLEX_MANTISSA_SHIFT = 8,
         COMPLEX_MANTISSA_MASK = 0xffffff
     };
-
-    // Possible data values for TYPE_NULL.
-    enum {
-        // The value is not defined.
-        DATA_NULL_UNDEFINED = 0,
-        // The value is explicitly defined as empty.
-        DATA_NULL_EMPTY = 1
-    };
-
     // The data for this item, as interpreted according to dataType.
     uint32_t data;
-
     void copyFrom_dtoh(const Res_value& src);
 };
-
 /**
  *  This is a reference to a unique entry (a ResTable_entry structure)
  *  in a resource table.  The value is structured as: 0xpptteeee,
@@ -389,7 +303,6 @@ struct ResTable_ref
 {
     uint32_t ident;
 };
-
 /**
  * Reference to a string in a string pool.
  */
@@ -400,7 +313,6 @@ struct ResStringPool_ref
     // of the string data in the pool.
     uint32_t index;
 };
-
 /** ********************************************************************
  *  String Pool
  *
@@ -408,7 +320,6 @@ struct ResStringPool_ref
  *  ResStringPool_ref.
  *
  *********************************************************************** */
-
 /**
  * Definition for a pool of strings.  The data of this chunk is an
  * array of uint32_t providing indices into the pool, relative to
@@ -427,33 +338,26 @@ struct ResStringPool_ref
 struct ResStringPool_header
 {
     struct ResChunk_header header;
-
     // Number of strings in this pool (number of uint32_t indices that follow
     // in the data).
     uint32_t stringCount;
-
     // Number of style span arrays in the pool (number of uint32_t indices
     // follow the string indices).
     uint32_t styleCount;
-
     // Flags.
     enum {
         // If set, the string index is sorted by the string values (based
         // on strcmp16()).
         SORTED_FLAG = 1<<0,
-
         // String pool is encoded in UTF-8
         UTF8_FLAG = 1<<8
     };
     uint32_t flags;
-
     // Index from header of the string data.
     uint32_t stringsStart;
-
     // Index from header of the style data.
     uint32_t stylesStart;
 };
-
 /**
  * This structure defines a span of style information associated with
  * a string in the pool.
@@ -463,16 +367,13 @@ struct ResStringPool_span
     enum {
         END = 0xFFFFFFFF
     };
-
     // This is the name of the span -- that is, the name of the XML
     // tag that defined it.  The special value END (0xFFFFFFFF) indicates
     // the end of an array of spans.
     ResStringPool_ref name;
-
     // The range of characters in the string that this span applies to.
     uint32_t firstChar, lastChar;
 };
-
 /**
  * Convenience class for accessing data in a ResStringPool resource.
  */
@@ -482,40 +383,28 @@ public:
     ResStringPool();
     ResStringPool(const void* data, size_t size, bool copyData=false);
     ~ResStringPool();
-
-    void setToEmpty();
     status_t setTo(const void* data, size_t size, bool copyData=false);
-
     status_t getError() const;
-
     void uninit();
-
     // Return string entry as UTF16; if the pool is UTF8, the string will
     // be converted before returning.
     inline const char16_t* stringAt(const ResStringPool_ref& ref, size_t* outLen) const {
         return stringAt(ref.index, outLen);
     }
     const char16_t* stringAt(size_t idx, size_t* outLen) const;
-
     // Note: returns null if the string pool is not UTF8.
     const char* string8At(size_t idx, size_t* outLen) const;
-
     // Return string whether the pool is UTF8 or UTF16.  Does not allow you
     // to distinguish null.
     const String8 string8ObjectAt(size_t idx) const;
-
     const ResStringPool_span* styleAt(const ResStringPool_ref& ref) const;
     const ResStringPool_span* styleAt(size_t idx) const;
-
     ssize_t indexOfString(const char16_t* str, size_t strLen) const;
-
     size_t size() const;
     size_t styleCount() const;
     size_t bytes() const;
-
     bool isSorted() const;
     bool isUTF8() const;
-
 private:
     status_t                    mError;
     void*                       mOwnedData;
@@ -525,29 +414,11 @@ private:
     const uint32_t*             mEntries;
     const uint32_t*             mEntryStyles;
     const void*                 mStrings;
-    char16_t mutable**          mCache;
+    char16_t**                  mCache;
     uint32_t                    mStringPoolSize;    // number of uint16_t
     const uint32_t*             mStyles;
     uint32_t                    mStylePoolSize;    // number of uint32_t
 };
-
-/**
- * Wrapper class that allows the caller to retrieve a string from
- * a string pool without knowing which string pool to look.
- */
-class StringPoolRef {
-public:
-    StringPoolRef();
-    StringPoolRef(const ResStringPool* pool, uint32_t index);
-
-    const char* string8(size_t* outLen) const;
-    const char16_t* string16(size_t* outLen) const;
-
-private:
-    const ResStringPool*        mPool;
-    uint32_t                    mIndex;
-};
-
 /** ********************************************************************
  *  XML Tree
  *
@@ -556,7 +427,6 @@ private:
  *  easier to parse on the device.
  *
  *********************************************************************** */
-
 /**
  * XML tree header.  This appears at the front of an XML tree,
  * describing its content.  It is followed by a flat array of
@@ -568,7 +438,6 @@ struct ResXMLTree_header
 {
     struct ResChunk_header header;
 };
-
 /**
  * Basic XML tree node.  A single item in the XML document.  Extended info
  * about the node can be found after header.headerSize.
@@ -576,14 +445,11 @@ struct ResXMLTree_header
 struct ResXMLTree_node
 {
     struct ResChunk_header header;
-
     // Line number in original source file at which this element appeared.
     uint32_t lineNumber;
-
     // Optional XML comment that was associated with this element; -1 if none.
     struct ResStringPool_ref comment;
 };
-
 /**
  * Extended XML tree node for CDATA tags -- includes the CDATA string.
  * Appears header.headerSize bytes after a ResXMLTree_node.
@@ -596,7 +462,6 @@ struct ResXMLTree_cdataExt
     // The typed value of the character data if this is a CDATA node.
     struct Res_value typedData;
 };
-
 /**
  * Extended XML tree node for namespace start/end nodes.
  * Appears header.headerSize bytes after a ResXMLTree_node.
@@ -609,7 +474,6 @@ struct ResXMLTree_namespaceExt
     // The URI of the namespace.
     struct ResStringPool_ref uri;
 };
-
 /**
  * Extended XML tree node for element start/end nodes.
  * Appears header.headerSize bytes after a ResXMLTree_node.
@@ -623,7 +487,6 @@ struct ResXMLTree_endElementExt
     // character data if this is a CDATA node.
     struct ResStringPool_ref name;
 };
-
 /**
  * Extended XML tree node for start tags -- includes attribute
  * information.
@@ -658,7 +521,6 @@ struct ResXMLTree_attrExt
     // Index (1-based) of the "style" attribute. 0 if none.
     uint16_t styleIndex;
 };
-
 struct ResXMLTree_attribute
 {
     // Namespace of this attribute.
@@ -666,21 +528,17 @@ struct ResXMLTree_attribute
 
     // Name of this attribute.
     struct ResStringPool_ref name;
-
     // The original raw string value of this attribute.
     struct ResStringPool_ref rawValue;
 
     // Processesd typed value of this attribute.
     struct Res_value typedValue;
 };
-
 class ResXMLTree;
-
 class ResXMLParser
 {
 public:
     ResXMLParser(const ResXMLTree& tree);
-
     enum event_code_t {
         BAD_DOCUMENT = -1,
         START_DOCUMENT = 0,
@@ -694,44 +552,39 @@ public:
         END_TAG = RES_XML_END_ELEMENT_TYPE,
         TEXT = RES_XML_CDATA_TYPE
     };
-
     struct ResXMLPosition
     {
         event_code_t                eventCode;
         const ResXMLTree_node*      curNode;
         const void*                 curExt;
     };
-
     void restart();
-
     const ResStringPool& getStrings() const;
-
     event_code_t getEventType() const;
     // Note, unlike XmlPullParser, the first call to next() will return
     // START_TAG of the first element.
     event_code_t next();
-
     // These are available for all nodes:
     int32_t getCommentID() const;
-    const char16_t* getComment(size_t* outLen) const;
+    const uint16_t* getComment(size_t* outLen) const;
     uint32_t getLineNumber() const;
 
     // This is available for TEXT:
     int32_t getTextID() const;
-    const char16_t* getText(size_t* outLen) const;
+    const uint16_t* getText(size_t* outLen) const;
     ssize_t getTextValue(Res_value* outValue) const;
 
     // These are available for START_NAMESPACE and END_NAMESPACE:
     int32_t getNamespacePrefixID() const;
-    const char16_t* getNamespacePrefix(size_t* outLen) const;
+    const uint16_t* getNamespacePrefix(size_t* outLen) const;
     int32_t getNamespaceUriID() const;
-    const char16_t* getNamespaceUri(size_t* outLen) const;
+    const uint16_t* getNamespaceUri(size_t* outLen) const;
 
     // These are available for START_TAG and END_TAG:
     int32_t getElementNamespaceID() const;
-    const char16_t* getElementNamespace(size_t* outLen) const;
+    const uint16_t* getElementNamespace(size_t* outLen) const;
     int32_t getElementNameID() const;
-    const char16_t* getElementName(size_t* outLen) const;
+    const uint16_t* getElementName(size_t* outLen) const;
 
     // Remaining methods are for retrieving information about attributes
     // associated with a START_TAG:
@@ -740,70 +593,50 @@ public:
 
     // Returns -1 if no namespace, -2 if idx out of range.
     int32_t getAttributeNamespaceID(size_t idx) const;
-    const char16_t* getAttributeNamespace(size_t idx, size_t* outLen) const;
+    const uint16_t* getAttributeNamespace(size_t idx, size_t* outLen) const;
 
     int32_t getAttributeNameID(size_t idx) const;
-    const char16_t* getAttributeName(size_t idx, size_t* outLen) const;
+    const uint16_t* getAttributeName(size_t idx, size_t* outLen) const;
     uint32_t getAttributeNameResID(size_t idx) const;
 
-    // These will work only if the underlying string pool is UTF-8.
-    const char* getAttributeNamespace8(size_t idx, size_t* outLen) const;
-    const char* getAttributeName8(size_t idx, size_t* outLen) const;
-
     int32_t getAttributeValueStringID(size_t idx) const;
-    const char16_t* getAttributeStringValue(size_t idx, size_t* outLen) const;
+    const uint16_t* getAttributeStringValue(size_t idx, size_t* outLen) const;
 
     int32_t getAttributeDataType(size_t idx) const;
     int32_t getAttributeData(size_t idx) const;
     ssize_t getAttributeValue(size_t idx, Res_value* outValue) const;
-
     ssize_t indexOfAttribute(const char* ns, const char* attr) const;
     ssize_t indexOfAttribute(const char16_t* ns, size_t nsLen,
                              const char16_t* attr, size_t attrLen) const;
-
     ssize_t indexOfID() const;
     ssize_t indexOfClass() const;
     ssize_t indexOfStyle() const;
-
     void getPosition(ResXMLPosition* pos) const;
     void setPosition(const ResXMLPosition& pos);
-
 private:
     friend class ResXMLTree;
 
     event_code_t nextNode();
-
     const ResXMLTree&           mTree;
     event_code_t                mEventCode;
     const ResXMLTree_node*      mCurNode;
     const void*                 mCurExt;
 };
-
-class DynamicRefTable;
-
 /**
  * Convenience class for accessing data in a ResXMLTree resource.
  */
 class ResXMLTree : public ResXMLParser
 {
 public:
-    ResXMLTree(const DynamicRefTable* dynamicRefTable);
     ResXMLTree();
+    ResXMLTree(const void* data, size_t size, bool copyData=false);
     ~ResXMLTree();
-
     status_t setTo(const void* data, size_t size, bool copyData=false);
-
     status_t getError() const;
-
     void uninit();
-
 private:
     friend class ResXMLParser;
-
     status_t validateNode(const ResXMLTree_node* node) const;
-
-    const DynamicRefTable* const mDynamicRefTable;
-
     status_t                    mError;
     void*                       mOwnedData;
     const ResXMLTree_header*    mHeader;
@@ -816,12 +649,10 @@ private:
     const void*                 mRootExt;
     event_code_t                mRootCode;
 };
-
 /** ********************************************************************
  *  RESOURCE TABLE
  *
  *********************************************************************** */
-
 /**
  * Header for a resource table.  Its data contains a series of
  * additional chunks:
@@ -836,11 +667,9 @@ private:
 struct ResTable_header
 {
     struct ResChunk_header header;
-
     // The number of ResTable_package structures.
     uint32_t packageCount;
 };
-
 /**
  * A collection of resource data types within a package.  Followed by
  * one or more ResTable_type and ResTable_typeSpec structures containing the
@@ -849,47 +678,25 @@ struct ResTable_header
 struct ResTable_package
 {
     struct ResChunk_header header;
-
     // If this is a base package, its ID.  Package IDs start
     // at 1 (corresponding to the value of the package bits in a
     // resource identifier).  0 means this is not a base package.
     uint32_t id;
-
     // Actual name of this package, \0-terminated.
-    uint16_t name[128];
-
+    char16_t name[128];
     // Offset to a ResStringPool_header defining the resource
     // type symbol table.  If zero, this package is inheriting from
     // another base package (overriding specific values in it).
     uint32_t typeStrings;
-
     // Last index into typeStrings that is for public use by others.
     uint32_t lastPublicType;
-
     // Offset to a ResStringPool_header defining the resource
     // key symbol table.  If zero, this package is inheriting from
     // another base package (overriding specific values in it).
     uint32_t keyStrings;
-
     // Last index into keyStrings that is for public use by others.
     uint32_t lastPublicKey;
-
-    uint32_t typeIdOffset;
 };
-
-// The most specific locale can consist of:
-//
-// - a 3 char language code
-// - a 3 char region code prefixed by a 'r'
-// - a 4 char script code prefixed by a 's'
-// - a 8 char variant code prefixed by a 'v'
-//
-// each separated by a single char separator, which sums up to a total of 24
-// chars, (25 include the string terminator) rounded up to 28 to be 4 byte
-// aligned.
-#define RESTABLE_MAX_LOCALE_LEN 28
-
-
 /**
  * Describes a particular resource configuration.
  */
@@ -910,42 +717,10 @@ struct ResTable_config
 
     union {
         struct {
-            // This field can take three different forms:
-            // - \0\0 means "any".
-            //
-            // - Two 7 bit ascii values interpreted as ISO-639-1 language
-            //   codes ('fr', 'en' etc. etc.). The high bit for both bytes is
-            //   zero.
-            //
-            // - A single 16 bit little endian packed value representing an
-            //   ISO-639-2 3 letter language code. This will be of the form:
-            //
-            //   {1, t, t, t, t, t, s, s, s, s, s, f, f, f, f, f}
-            //
-            //   bit[0, 4] = first letter of the language code
-            //   bit[5, 9] = second letter of the language code
-            //   bit[10, 14] = third letter of the language code.
-            //   bit[15] = 1 always
-            //
-            // For backwards compatibility, languages that have unambiguous
-            // two letter codes are represented in that format.
-            //
-            // The layout is always bigendian irrespective of the runtime
-            // architecture.
+            // \0\0 means "any".  Otherwise, en, fr, etc.
             char language[2];
 
-            // This field can take three different forms:
-            // - \0\0 means "any".
-            //
-            // - Two 7 bit ascii values interpreted as 2 letter region
-            //   codes ('US', 'GB' etc.). The high bit for both bytes is zero.
-            //
-            // - An UN M.49 3 digit region code. For simplicity, these are packed
-            //   in the same manner as the language codes, though we should need
-            //   only 10 bits to represent them, instead of the 15.
-            //
-            // The layout is always bigendian irrespective of the runtime
-            // architecture.
+            // \0\0 means "any".  Otherwise, US, CA, etc.
             char country[2];
         };
         uint32_t locale;
@@ -974,7 +749,6 @@ struct ResTable_config
         DENSITY_XHIGH = ACONFIGURATION_DENSITY_XHIGH,
         DENSITY_XXHIGH = ACONFIGURATION_DENSITY_XXHIGH,
         DENSITY_XXXHIGH = ACONFIGURATION_DENSITY_XXXHIGH,
-        DENSITY_ANY = ACONFIGURATION_DENSITY_ANY,
         DENSITY_NONE = ACONFIGURATION_DENSITY_NONE
     };
 
@@ -1048,7 +822,7 @@ struct ResTable_config
         SDKVERSION_ANY = 0
     };
 
-  enum {
+    enum {
         MINORVERSION_ANY = 0
     };
 
@@ -1077,7 +851,6 @@ struct ResTable_config
         SCREENLONG_ANY = ACONFIGURATION_SCREENLONG_ANY << SHIFT_SCREENLONG,
         SCREENLONG_NO = ACONFIGURATION_SCREENLONG_NO << SHIFT_SCREENLONG,
         SCREENLONG_YES = ACONFIGURATION_SCREENLONG_YES << SHIFT_SCREENLONG,
-
         // screenLayout bits for layout direction.
         MASK_LAYOUTDIR = 0xC0,
         SHIFT_LAYOUTDIR = 6,
@@ -1095,8 +868,6 @@ struct ResTable_config
         UI_MODE_TYPE_CAR = ACONFIGURATION_UI_MODE_TYPE_CAR,
         UI_MODE_TYPE_TELEVISION = ACONFIGURATION_UI_MODE_TYPE_TELEVISION,
         UI_MODE_TYPE_APPLIANCE = ACONFIGURATION_UI_MODE_TYPE_APPLIANCE,
-        UI_MODE_TYPE_WATCH = ACONFIGURATION_UI_MODE_TYPE_WATCH,
-
         // uiMode bits for the night switch.
         MASK_UI_MODE_NIGHT = 0x30,
         SHIFT_UI_MODE_NIGHT = 4,
@@ -1104,7 +875,6 @@ struct ResTable_config
         UI_MODE_NIGHT_NO = ACONFIGURATION_UI_MODE_NIGHT_NO << SHIFT_UI_MODE_NIGHT,
         UI_MODE_NIGHT_YES = ACONFIGURATION_UI_MODE_NIGHT_YES << SHIFT_UI_MODE_NIGHT,
     };
-
     union {
         struct {
             uint8_t screenLayout;
@@ -1121,31 +891,19 @@ struct ResTable_config
         };
         uint32_t screenSizeDp;
     };
-
-    // The ISO-15924 short name for the script corresponding to this
-    // configuration. (eg. Hant, Latn, etc.). Interpreted in conjunction with
-    // the locale field.
-    char localeScript[4];
-
-    // A single BCP-47 variant subtag. Will vary in length between 5 and 8
-    // chars. Interpreted in conjunction with the locale field.
-    char localeVariant[8];
-
     void copyFromDeviceNoSwap(const ResTable_config& o);
 
     void copyFromDtoH(const ResTable_config& o);
 
     void swapHtoD();
-
     int compare(const ResTable_config& o) const;
     int compareLogical(const ResTable_config& o) const;
-
     // Flags indicating a set of config values.  These flag constants must
     // match the corresponding ones in android.content.pm.ActivityInfo and
     // attrs_manifest.xml.
     enum {
         CONFIG_MCC = ACONFIGURATION_MCC,
-        CONFIG_MNC = ACONFIGURATION_MNC,
+        CONFIG_MNC = ACONFIGURATION_MCC,
         CONFIG_LOCALE = ACONFIGURATION_LOCALE,
         CONFIG_TOUCHSCREEN = ACONFIGURATION_TOUCHSCREEN,
         CONFIG_KEYBOARD = ACONFIGURATION_KEYBOARD,
@@ -1167,7 +925,6 @@ struct ResTable_config
 
     // Return true if 'this' is more specific than 'o'.
     bool isMoreSpecificThan(const ResTable_config& o) const;
-
     // Return true if 'this' is a better match than 'o' for the 'requested'
     // configuration.  This assumes that match() has already been used to
     // remove any configurations that don't match the requested configuration
@@ -1179,7 +936,6 @@ struct ResTable_config
     // '==requested' will pass the match() call.  So if this is not generic,
     // it wins.  If this IS generic, o wins (return false).
     bool isBetterThan(const ResTable_config& o, const ResTable_config* requested) const;
-
     // Return true if 'this' can be considered a match for the parameters in
     // 'settings'.
     // Note this is asymetric.  A default piece of data will match every request
@@ -1187,51 +943,9 @@ struct ResTable_config
     // (ie, request with no mcc should not match a particular mcc's data)
     // settings is the requested settings
     bool match(const ResTable_config& settings) const;
-
-    // Get the string representation of the locale component of this
-    // Config. The maximum size of this representation will be
-    // |RESTABLE_MAX_LOCALE_LEN| (including a terminating '\0').
-    //
-    // Example: en-US, en-Latn-US, en-POSIX.
-    void getBcp47Locale(char* out) const;
-
-    // Sets the values of language, region, script and variant to the
-    // well formed BCP-47 locale contained in |in|. The input locale is
-    // assumed to be valid and no validation is performed.
-    void setBcp47Locale(const char* in);
-
-    inline void clearLocale() {
-        locale = 0;
-        memset(localeScript, 0, sizeof(localeScript));
-        memset(localeVariant, 0, sizeof(localeVariant));
-    }
-
-    // Get the 2 or 3 letter language code of this configuration. Trailing
-    // bytes are set to '\0'.
-    size_t unpackLanguage(char language[4]) const;
-    // Get the 2 or 3 letter language code of this configuration. Trailing
-    // bytes are set to '\0'.
-    size_t unpackRegion(char region[4]) const;
-
-    // Sets the language code of this configuration to the first three
-    // chars at |language|.
-    //
-    // If |language| is a 2 letter code, the trailing byte must be '\0' or
-    // the BCP-47 separator '-'.
-    void packLanguage(const char* language);
-    // Sets the region code of this configuration to the first three bytes
-    // at |region|. If |region| is a 2 letter code, the trailing byte must be '\0'
-    // or the BCP-47 separator '-'.
-    void packRegion(const char* region);
-
-    // Returns a positive integer if this config is more specific than |o|
-    // with respect to their locales, a negative integer if |o| is more specific
-    // and 0 if they're equally specific.
-    int isLocaleMoreSpecificThan(const ResTable_config &o) const;
-
+    void getLocale(char str[6]) const;
     String8 toString() const;
 };
-
 /**
  * A specification of the resources defined by a particular type.
  *
@@ -1245,7 +959,6 @@ struct ResTable_config
 struct ResTable_typeSpec
 {
     struct ResChunk_header header;
-
     // The type identifier this chunk is holding.  Type IDs start
     // at 1 (corresponding to the value of the type bits in a
     // resource identifier).  0 is invalid.
@@ -1258,13 +971,11 @@ struct ResTable_typeSpec
 
     // Number of uint32_t entry configuration masks that follow.
     uint32_t entryCount;
-
     enum {
         // Additional flag indicating an entry is public.
         SPEC_PUBLIC = 0x40000000
     };
 };
-
 /**
  * A collection of resource entries for a particular resource data
  * type. Followed by an array of uint32_t defining the resource
@@ -1283,7 +994,6 @@ struct ResTable_typeSpec
 struct ResTable_type
 {
     struct ResChunk_header header;
-
     enum {
         NO_ENTRY = 0xFFFFFFFF
     };
@@ -1300,14 +1010,12 @@ struct ResTable_type
 
     // Number of uint32_t entry indices that follow.
     uint32_t entryCount;
-
     // Offset from header where ResTable_entry data starts.
     uint32_t entriesStart;
 
     // Configuration this collection of entries is designed for.
     ResTable_config config;
 };
-
 /**
  * This is the beginning of information about an entry in the resource
  * table.  It holds the reference to the name of this entry, and is
@@ -1320,7 +1028,6 @@ struct ResTable_entry
 {
     // Number of bytes in this structure.
     uint16_t size;
-
     enum {
         // If set, this is a complex entry, holding a set of name/value
         // mappings.  It is followed by an array of ResTable_map structures.
@@ -1334,7 +1041,6 @@ struct ResTable_entry
     // Reference into ResTable_package::keyStrings identifying this entry.
     struct ResStringPool_ref key;
 };
-
 /**
  * Extended form of a ResTable_entry for map entries, defining a parent map
  * resource from which to inherit values.
@@ -1342,12 +1048,10 @@ struct ResTable_entry
 struct ResTable_map_entry : public ResTable_entry
 {
     // Resource identifier of the parent mapping, or 0 if there is none.
-    // This is always treated as a TYPE_DYNAMIC_REFERENCE.
     ResTable_ref parent;
     // Number of name/value pairs that follow for FLAG_COMPLEX.
     uint32_t count;
 };
-
 /**
  * A single name/value mapping that is part of a complex resource
  * entry.
@@ -1359,22 +1063,17 @@ struct ResTable_map
     // to supply meta-data about the attribute; for all other resource types
     // it must be an attribute resource.
     ResTable_ref name;
-
     // Special values for 'name' when defining attribute resources.
     enum {
         // This entry holds the attribute's type code.
         ATTR_TYPE = Res_MAKEINTERNAL(0),
-
         // For integral attributes, this is the minimum value it can hold.
         ATTR_MIN = Res_MAKEINTERNAL(1),
-
         // For integral attributes, this is the maximum value it can hold.
         ATTR_MAX = Res_MAKEINTERNAL(2),
-
         // Localization of this resource is can be encouraged or required with
         // an aapt flag if this is set
         ATTR_L10N = Res_MAKEINTERNAL(3),
-
         // for plural support, see android.content.res.PluralRules#attrForQuantity(int)
         ATTR_OTHER = Res_MAKEINTERNAL(4),
         ATTR_ZERO = Res_MAKEINTERNAL(5),
@@ -1384,7 +1083,6 @@ struct ResTable_map
         ATTR_MANY = Res_MAKEINTERNAL(9)
 
     };
-
     // Bit mask of allowed types, for use with ATTR_TYPE.
     enum {
         // No type has been defined for this attribute, use generic
@@ -1392,41 +1090,30 @@ struct ResTable_map
         // handled generically; the upper 16 require additional information
         // in the bag so can not be handled generically for TYPE_ANY.
         TYPE_ANY = 0x0000FFFF,
-
         // Attribute holds a references to another resource.
         TYPE_REFERENCE = 1<<0,
-
         // Attribute holds a generic string.
         TYPE_STRING = 1<<1,
-
         // Attribute holds an integer value.  ATTR_MIN and ATTR_MIN can
         // optionally specify a constrained range of possible integer values.
         TYPE_INTEGER = 1<<2,
-
         // Attribute holds a boolean integer.
         TYPE_BOOLEAN = 1<<3,
-
         // Attribute holds a color value.
         TYPE_COLOR = 1<<4,
-
         // Attribute holds a floating point value.
         TYPE_FLOAT = 1<<5,
-
         // Attribute holds a dimension value, such as "20px".
         TYPE_DIMENSION = 1<<6,
-
         // Attribute holds a fraction value, such as "20%".
         TYPE_FRACTION = 1<<7,
-
         // Attribute holds an enumeration.  The enumeration values are
         // supplied as additional entries in the map.
         TYPE_ENUM = 1<<16,
-
         // Attribute holds a bitmaks of flags.  The flag bit values are
         // supplied as additional entries in the map.
         TYPE_FLAGS = 1<<17
     };
-
     // Enum of localization modes, for use with ATTR_L10N.
     enum {
         L10N_NOT_REQUIRED = 0,
@@ -1436,72 +1123,6 @@ struct ResTable_map
     // This mapping's value.
     Res_value value;
 };
-
-/**
- * A package-id to package name mapping for any shared libraries used
- * in this resource table. The package-id's encoded in this resource
- * table may be different than the id's assigned at runtime. We must
- * be able to translate the package-id's based on the package name.
- */
-struct ResTable_lib_header
-{
-    struct ResChunk_header header;
-
-    // The number of shared libraries linked in this resource table.
-    uint32_t count;
-};
-
-/**
- * A shared library package-id to package name entry.
- */
-struct ResTable_lib_entry
-{
-    // The package-id this shared library was assigned at build time.
-    // We use a uint32 to keep the structure aligned on a uint32 boundary.
-    uint32_t packageId;
-
-    // The package name of the shared library. \0 terminated.
-    uint16_t packageName[128];
-};
-
-/**
- * Holds the shared library ID table. Shared libraries are assigned package IDs at
- * build time, but they may be loaded in a different order, so we need to maintain
- * a mapping of build-time package ID to run-time assigned package ID.
- *
- * Dynamic references are not currently supported in overlays. Only the base package
- * may have dynamic references.
- */
-class DynamicRefTable
-{
-public:
-    DynamicRefTable(uint8_t packageId);
-
-    // Loads an unmapped reference table from the package.
-    status_t load(const ResTable_lib_header* const header);
-
-    // Adds mappings from the other DynamicRefTable
-    status_t addMappings(const DynamicRefTable& other);
-
-    // Creates a mapping from build-time package ID to run-time package ID for
-    // the given package.
-    status_t addMapping(const String16& packageName, uint8_t packageId);
-
-    // Performs the actual conversion of build-time resource ID to run-time
-    // resource ID.
-    inline status_t lookupResourceId(uint32_t* resId) const;
-    inline status_t lookupResourceValue(Res_value* value) const;
-
-    inline const KeyedVector<String16, uint8_t>& entries() const {
-        return mEntries;
-    }
-
-private:
-    const uint8_t                   mAssignedPackageId;
-    uint8_t                         mLookupTable[256];
-    KeyedVector<String16, uint8_t>  mEntries;
-};
-
 /**
  * Convenience class for accessing data in a ResTable resource.
  */
@@ -1509,40 +1130,26 @@ class ResTable
 {
 public:
     ResTable();
-    ResTable(const void* data, size_t size, const int32_t cookie,
+    ResTable(const void* data, size_t size, void* cookie,
              bool copyData=false);
     ~ResTable();
-
-    status_t add(const void* data, size_t size, const int32_t cookie=-1, bool copyData=false);
-    status_t add(const void* data, size_t size, const void* idmapData, size_t idmapDataSize,
-            const int32_t cookie=-1, bool copyData=false);
-
-    status_t add(Asset* asset, const int32_t cookie=-1, bool copyData=false);
-    status_t add(Asset* asset, Asset* idmapAsset, const int32_t cookie=-1, bool copyData=false);
-
+    status_t add(const void* data, size_t size, void* cookie,
+                 bool copyData=false, const void* idmap = NULL);
+    status_t add(Asset* asset, void* cookie,
+                 bool copyData=false, const void* idmap = NULL);
     status_t add(ResTable* src);
-    status_t addEmpty(const int32_t cookie);
-
     status_t getError() const;
-
     void uninit();
-
     struct resource_name
     {
         const char16_t* package;
         size_t packageLen;
         const char16_t* type;
-        const char* type8;
         size_t typeLen;
         const char16_t* name;
-        const char* name8;
         size_t nameLen;
     };
-
-    bool getResourceName(uint32_t resID, bool allowUtf8, resource_name* outName) const;
-
-    bool getResourceFlags(uint32_t resID, uint32_t* outFlags) const;
-
+    bool getResourceName(uint32_t resID, resource_name* outName) const;
     /**
      * Retrieve the value of a resource.  If the resource is found, returns a
      * value >= 0 indicating the table it is in (for use with
@@ -1562,30 +1169,25 @@ public:
                     uint16_t density = 0,
                     uint32_t* outSpecFlags = NULL,
                     ResTable_config* outConfig = NULL) const;
-
     inline ssize_t getResource(const ResTable_ref& res, Res_value* outValue,
             uint32_t* outSpecFlags=NULL) const {
         return getResource(res.ident, outValue, false, 0, outSpecFlags, NULL);
     }
-
     ssize_t resolveReference(Res_value* inOutValue,
                              ssize_t blockIndex,
                              uint32_t* outLastRef = NULL,
                              uint32_t* inoutTypeSpecFlags = NULL,
                              ResTable_config* outConfig = NULL) const;
-
     enum {
         TMP_BUFFER_SIZE = 16
     };
     const char16_t* valueToString(const Res_value* value, size_t stringBlock,
                                   char16_t tmpBuffer[TMP_BUFFER_SIZE],
-                                  size_t* outLen) const;
-
+                                  size_t* outLen);
     struct bag_entry {
         ssize_t stringBlock;
         ResTable_map map;
     };
-
     /**
      * Retrieve the bag of a resource.  If the resoruce is found, returns the
      * number of bags it contains and 'outBag' points to an array of their
@@ -1599,26 +1201,18 @@ public:
      * @return ssize_t Either a >= 0 bag count of negative error code.
      */
     ssize_t lockBag(uint32_t resID, const bag_entry** outBag) const;
-
     void unlockBag(const bag_entry* bag) const;
-
     void lock() const;
-
     ssize_t getBagLocked(uint32_t resID, const bag_entry** outBag,
             uint32_t* outTypeSpecFlags=NULL) const;
-
     void unlock() const;
-
     class Theme {
     public:
         Theme(const ResTable& table);
         ~Theme();
-
         inline const ResTable& getResTable() const { return mTable; }
-
         status_t applyStyle(uint32_t resID, bool force=false);
         status_t setTo(const Theme& other);
-
         /**
          * Retrieve a value in the theme.  If the theme defines this
          * value, returns a value >= 0 indicating the table it is in
@@ -1639,7 +1233,6 @@ public:
          */
         ssize_t getAttribute(uint32_t resID, Res_value* outValue,
                 uint32_t* outTypeSpecFlags = NULL) const;
-
         /**
          * This is like ResTable::resolveReference(), but also takes
          * care of resolving attribute references to the theme.
@@ -1648,38 +1241,31 @@ public:
                 ssize_t blockIndex, uint32_t* outLastRef = NULL,
                 uint32_t* inoutTypeSpecFlags = NULL,
                 ResTable_config* inoutConfig = NULL) const;
-
         void dumpToLog() const;
 
     private:
         Theme(const Theme&);
         Theme& operator=(const Theme&);
-
         struct theme_entry {
             ssize_t stringBlock;
             uint32_t typeSpecFlags;
             Res_value value;
         };
-
         struct type_info {
             size_t numEntries;
             theme_entry* entries;
         };
-
         struct package_info {
-            type_info types[Res_MAXTYPE + 1];
+            size_t numTypes;
+            type_info types[];
         };
-
         void free_package(package_info* pi);
         package_info* copy_package(package_info* pi);
-
         const ResTable& mTable;
         package_info*   mPackages[Res_MAXPACKAGE];
     };
-
     void setParameters(const ResTable_config* params);
     void getParameters(ResTable_config* params) const;
-
     // Retrieve an identifier (which can be passed to getResource)
     // for a given resource name.  The 'name' can be fully qualified
     // (<package>:<type>.<basename>) or the package or type components
@@ -1691,8 +1277,7 @@ public:
                                const char16_t* defPackage = 0,
                                size_t defPackageLen = 0,
                                uint32_t* outTypeSpecFlags = NULL) const;
-
-    static bool expandResourceRef(const char16_t* refStr, size_t refLen,
+    static bool expandResourceRef(const uint16_t* refStr, size_t refLen,
                                   String16* outPackage,
                                   String16* outType,
                                   String16* outName,
@@ -1700,18 +1285,13 @@ public:
                                   const String16* defPackage = NULL,
                                   const char** outErrorMsg = NULL,
                                   bool* outPublicOnly = NULL);
-
     static bool stringToInt(const char16_t* s, size_t len, Res_value* outValue);
     static bool stringToFloat(const char16_t* s, size_t len, Res_value* outValue);
-
     // Used with stringToValue.
     class Accessor
     {
     public:
         inline virtual ~Accessor() { }
-
-        virtual const String16& getAssetsPackage() const = 0;
-
         virtual uint32_t getCustomResource(const String16& package,
                                            const String16& type,
                                            const String16& name) const = 0;
@@ -1733,7 +1313,6 @@ public:
         virtual bool getLocalizationSetting() = 0;
         virtual void reportError(void* accessorCookie, const char* fmt, ...) = 0;
     };
-
     // Convert a string to a resource value.  Handles standard "@res",
     // "#color", "123", and "0x1bd" types; performs escaping of strings.
     // The resulting value is placed in 'outValue'; if it is a string type,
@@ -1753,19 +1332,15 @@ public:
                        void* accessorCookie = NULL,
                        uint32_t attrType = ResTable_map::TYPE_ANY,
                        bool enforcePrivate = true) const;
-
     // Perform processing of escapes and quotes in a string.
     static bool collectString(String16* outString,
                               const char16_t* s, size_t len,
                               bool preserveSpaces,
                               const char** outErrorMsg = NULL,
                               bool append = false);
-
     size_t getBasePackageCount() const;
-    const String16 getBasePackageName(size_t idx) const;
+    const char16_t* getBasePackageName(size_t idx) const;
     uint32_t getBasePackageId(size_t idx) const;
-    uint32_t getLastTypeIdForPackage(size_t idx) const;
-
     // Return the number of resource tables that the object contains.
     size_t getTableCount() const;
     // Return the values string pool for the resource table at the given
@@ -1774,87 +1349,58 @@ public:
     // but not the names their entries or types.
     const ResStringPool* getTableStringBlock(size_t index) const;
     // Return unique cookie identifier for the given resource table.
-    int32_t getTableCookie(size_t index) const;
-
-    const DynamicRefTable* getDynamicRefTableForCookie(int32_t cookie) const;
-
+    void* getTableCookie(size_t index) const;
     // Return the configurations (ResTable_config) that we know about
-    void getConfigurations(Vector<ResTable_config>* configs, bool ignoreMipmap=false) const;
-
+    void getConfigurations(Vector<ResTable_config>* configs) const;
     void getLocales(Vector<String8>* locales) const;
-
     // Generate an idmap.
     //
     // Return value: on success: NO_ERROR; caller is responsible for free-ing
     // outData (using free(3)). On failure, any status_t value other than
     // NO_ERROR; the caller should not free outData.
-    status_t createIdmap(const ResTable& overlay,
-            uint32_t targetCrc, uint32_t overlayCrc,
-            const char* targetPath, const char* overlayPath,
-            void** outData, size_t* outSize) const;
-
+    status_t createIdmap(const ResTable& overlay, uint32_t originalCrc, uint32_t overlayCrc,
+                         void** outData, size_t* outSize) const;
     enum {
-        IDMAP_HEADER_SIZE_BYTES = 4 * sizeof(uint32_t) + 2 * 256,
+        IDMAP_HEADER_SIZE_BYTES = 3 * sizeof(uint32_t),
     };
-
     // Retrieve idmap meta-data.
     //
     // This function only requires the idmap header (the first
     // IDMAP_HEADER_SIZE_BYTES) bytes of an idmap file.
     static bool getIdmapInfo(const void* idmap, size_t size,
-            uint32_t* pVersion,
-            uint32_t* pTargetCrc, uint32_t* pOverlayCrc,
-            String8* pTargetPath, String8* pOverlayPath);
-
+                             uint32_t* pOriginalCrc, uint32_t* pOverlayCrc);
+#ifndef HAVE_ANDROID_OS
     void print(bool inclValues) const;
     static String8 normalizeForOutput(const char* input);
-
+#endif
 private:
     struct Header;
     struct Type;
-    struct Entry;
     struct Package;
     struct PackageGroup;
     struct bag_set;
-    typedef Vector<Type*> TypeList;
-
-    status_t addInternal(const void* data, size_t size, const void* idmapData, size_t idmapDataSize,
-            const int32_t cookie, bool copyData);
-
+    status_t add(const void* data, size_t size, void* cookie,
+                 Asset* asset, bool copyData, const Asset* idmap);
     ssize_t getResourcePackageIndex(uint32_t resID) const;
-
-    status_t getEntry(
-        const PackageGroup* packageGroup, int typeIndex, int entryIndex,
+    ssize_t getEntry(
+        const Package* package, int typeIndex, int entryIndex,
         const ResTable_config* config,
-        Entry* outEntry) const;
-
-    uint32_t findEntry(const PackageGroup* group, ssize_t typeIndex, const char16_t* name,
-            size_t nameLen, uint32_t* outTypeSpecFlags) const;
-
+        const ResTable_type** outType, const ResTable_entry** outEntry,
+        const Type** outTypeClass) const;
     status_t parsePackage(
-        const ResTable_package* const pkg, const Header* const header);
-
+        const ResTable_package* const pkg, const Header* const header, uint32_t idmap_id);
     void print_value(const Package* pkg, const Res_value& value) const;
 
     mutable Mutex               mLock;
-
     status_t                    mError;
-
     ResTable_config             mParams;
-
     // Array of all resource tables.
     Vector<Header*>             mHeaders;
-
     // Array of packages in all resource tables.
     Vector<PackageGroup*>       mPackageGroups;
-
     // Mapping from resource package IDs to indices into the internal
     // package array.
     uint8_t                     mPackageMap[256];
-
-    uint8_t                     mNextPackageId;
 };
-
 }   // namespace android
-
 #endif // _LIBS_UTILS_RESOURCE_TYPES_H

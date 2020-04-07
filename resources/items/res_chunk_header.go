@@ -1,7 +1,5 @@
 package items
 
-import "fmt"
-
 type ResChunkHeader struct {
 	/*
 	 chunk type
@@ -17,10 +15,10 @@ type ResChunkHeader struct {
 	Size uint32
 }
 
-func (chunkHeader ResChunkHeader) String() string {
-	return fmt.Sprintf("header type:%x, header size:%d, chunk size: %d", chunkHeader.Type, chunkHeader.HeaderSize, chunkHeader.Size)
-}
+//func (chunkHeader ResChunkHeader) String() string {
+//	return fmt.Sprintf("header type:%x, header size:%d, chunk size: %d", chunkHeader.Type, chunkHeader.HeaderSize, chunkHeader.Size)
+//}
 
-func (this ResChunkHeader) GetSize() uint32 {
-	return 8
-}
+//func (this ResChunkHeader) GetSize() uint32 {
+//	return 8
+//}

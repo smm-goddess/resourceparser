@@ -3,7 +3,6 @@ package items
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 type ResTableHeader struct {
@@ -23,10 +22,10 @@ func ParseTableHeader(src []byte) ResTableHeader {
 	return resTableHeader
 }
 
-func (this ResTableHeader) GetSize() uint32 {
-	return this.ResChunkHeader.GetSize() + 4
-}
+//func (this ResTableHeader) GetSize() uint32 {
+//	return this.ResChunkHeader.GetSize() + 4
+//}
 
-func (this ResTableHeader) String() string {
-	return fmt.Sprintf("%s, packageCount: %d", this.ResChunkHeader.String(), this.PackageCount)
-}
+//func (this ResTableHeader) String() string {
+//	return fmt.Sprintf("%s, packageCount: %d", this.ResChunkHeader.String(), this.PackageCount)
+//}

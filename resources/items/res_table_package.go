@@ -35,7 +35,6 @@ type ResTablePackage struct {
 		last public key's index. equals to key pool's size at this point and not used during parse
 	*/
 	LastPublicKey uint32
-	TypeIdOffset  uint32
 }
 
 /*
